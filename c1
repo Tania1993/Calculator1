@@ -11,33 +11,45 @@ import java.text.*;
 public class Calculator {
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
-        System.out.println("Enter first digit");
-        float a = in.nextFloat();
-        System.out.println("Enter second digit");
-        float b = in.nextFloat();
-        System.out.println("Enter operand");
-        String c = in.next();
-        if ((a < (-2147483648) || a > 2147483640) || (b < (-2147483648) || b > 2147483640)) {
-            System.err.println("Exceeded the range of acceptable values");
-            return;
+        if (args.length != 3) {
+            System.err.println("Enter two values and operand");
         }
-        /*char sep = ((DecimalFormat) DecimalFormat.getInstance()).getDecimalFormatSymbols().getDecimalSeparator();
-        if ((a != sep) && (b != sep)) {
-            System.err.println("Wrong format of the data.");
-            return;
-        }*/
-        switch (c.charAt(0)) {
-            case '+': System.out.println(a + b); break;
-            case '-': System.out.println(a - b); break;
-            case '*': System.out.println(a * b); break;
-            case '/': System.out.println(a / b);
-            if (b == 0)
-                System.err.println("Divide by 0! Please try again."); break;
-            case '%': System.out.println(a % b);
-            if (b == 0)
-                System.err.println("Divide by 0! Please try again."); break;
-            default:
-                System.out.println("Invalid operator");
+        double first = Double.parseDouble(args[0]);
+        String operator = args[1];
+        double second = Double.parseDouble(args[2]);
+        double result;
+        if ((first > Double.MAX_VALUE) || (first < Double.MIN_VALUE) || (second > Double.MAX_VALUE) || (second < Double.MIN_VALUE))
+            System.err.println("Incorrect value");
+        result = arithmetic(first, operator, second);
+
+    }
+
+    public static double arithmetic(double first, String operator, double second) {
+        double result;
+        if (operator.equals("add")) {
+            result = first + second;
+
+        } else if (operator.equals("sub")) {
+            result = first - second;
+
+        } else if (operator.equals("mul")) {
+            result = first * second;
+
+        } else if (operator.equals("div")) {
+            if (second == 0)
+                System.err.println("Attempt divide zero");
+            else
+                result = first / second;
+
+        } else if (operator.equals("left")) {
+            if (second == 0)
+                System.err.println("Attempt divide zero");
+            else
+                result = first % second;
+
+        } else {
+            System.out.println("Invalid operator");
         }
+    return 0.0;
     }
 }
