@@ -1,55 +1,50 @@
-package com.study.calculator;
-import java.util.*;
-import java.math.*;
 import java.lang.*;
-import java.text.*;
+import java.util.*;
 
-/**
- * Created by Таня on 05.03.2015.
- */
+public class array {
+    public String arr;
+    public Integer[] arrInt;
+    Scanner sc = new Scanner(System.in);
 
-public class Calculator {
-    public static void main(String[] args) {
-        Scanner in = new Scanner(System.in);
-        if (args.length != 3) {
-            System.err.println("Enter two values and operand");
-        }
-        double first = Double.parseDouble(args[0]);
-        String operator = args[1];
-        double second = Double.parseDouble(args[2]);
-        double result;
-        if ((first > Double.MAX_VALUE) || (first < Double.MIN_VALUE) || (second > Double.MAX_VALUE) || (second < Double.MIN_VALUE))
-            System.err.println("Incorrect value");
-        result = arithmetic(first, operator, second);
-
+  public String EnterArray(){
+        System.out.println("Enter elements of array");
+        arr = sc.nextLine();
+        return arr;
     }
 
-    public static double arithmetic(double first, String operator, double second) {
-        double result;
-        if (operator.equals("add")) {
-            result = first + second;
-
-        } else if (operator.equals("sub")) {
-            result = first - second;
-
-        } else if (operator.equals("mul")) {
-            result = first * second;
-
-        } else if (operator.equals("div")) {
-            if (second == 0)
-                System.err.println("Attempt divide zero");
-            else
-                result = first / second;
-
-        } else if (operator.equals("left")) {
-            if (second == 0)
-                System.err.println("Attempt divide zero");
-            else
-                result = first % second;
-
-        } else {
-            System.out.println("Invalid operator");
+    public Integer[] RewriteArray() throws NumberFormatException{
+        String[] str = arr.split(",");
+        arrInt = new Integer[str.length];
+        for (int i = 0; i < str.length; i++){
+            arrInt[i] = Integer.valueOf(str[i].trim());
+            if ((arrInt[i] > Integer.MAX_VALUE) || arrInt[i] < Integer.MIN_VALUE) {
+                throw new NumberFormatException();
+            }
         }
-    return 0.0;
+        System.out.println(Arrays.toString(str));
+        return arrInt;
+    }
+
+    public Integer[] Sort_Array() {
+        Arrays.sort(arrInt);
+        return  arrInt;
+    }
+
+    public void PrintArray(){
+        System.out.println("Sort array " + Arrays.toString(arrInt));
+    }
+
+    public static void main(String [] args){
+        array object = new array();
+        object.EnterArray();
+        try {
+            object.RewriteArray();
+        }catch (NumberFormatException e){
+            System.err.println("Number format exception!");
+        }
+        object.Sort_Array();
+        object.PrintArray();
     }
 }
+
+
