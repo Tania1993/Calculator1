@@ -1,56 +1,111 @@
-package com.study.calculator;
-import java.util.*;
-import java.math.*;
-import java.lang.*;
-import java.text.*;
-
 /**
- * Created by Таня on 05.03.2015.
+ * Created by Таня on 05.04.2015.
  */
 
-public class Calculator {
-    public static void main(String[] args) {
-        Scanner in = new Scanner(System.in);
-        if (args.length != 3) {
-            System.err.println("Enter two values and operand");
+import java.util.*;
+import java.io.*;
+
+interface SortArray{
+    double[] SortArray(double[] array);
+}
+
+class Bubble implements SortArray{
+    public double[] SortArray(double[] array){
+        double[] arrayBubble = array;
+        double temp = 0.0;
+        for (int k = arrayBubble.length-1; k >= 0; k--){
+            for (int i = 0; i < k; i++){
+                if (arrayBubble[i] > arrayBubble[i+1]){
+                    temp = arrayBubble[i];
+                    arrayBubble[i] = arrayBubble[i+1];
+                    arrayBubble[i+1] = temp;
+                }
+            }
         }
-        double first = Double.parseDouble(args[0]);
-        String operator = args[1];
-        double second = Double.parseDouble(args[2]);
-        double result;
-        if ((first > Double.MAX_VALUE) || (first < Double.MIN_VALUE) || (second > Double.MAX_VALUE) || (second < Double.MIN_VALUE))
-            System.err.println("Incorrect value");
-        result = arithmetic(first, operator, second);
-
-    }
-
-    public static double arithmetic(double first, String operator, double second) {
-        double result;
-        if (operator.equals("add")) {
-            result = first + second;
-
-        } else if (operator.equals("sub")) {
-            result = first - second;
-
-        } else if (operator.equals("mul")) {
-            result = first * second;
-
-        } else if (operator.equals("div")) {
-            if (second == 0)
-                System.err.println("Attempt divide zero");
-            else
-                result = first / second;
-
-        } else if (operator.equals("left")) {
-            if (second == 0)
-                System.err.println("Attempt divide zero");
-            else
-                result = first % second;
-
-        } else {
-            System.out.println("Invalid operator");
-        }
-    return 0.0;
+        return arrayBubble;
     }
 }
+
+    public double[] SortArray(double[] array){
+        double[] arrayQuick = array;
+        int i = 0, j = arrayQuick.length;
+        Quick temp, p;
+        p = arrayQuick[arrayQuick.length];
+        do{
+            while (arrayQuick[i] < p) i++;
+            while (arrayQuick[j] > p) j--;
+            if (i <= j){
+                temp = arrayQuick[i];
+                arrayQuick[i] = arrayQuick[j];
+                arrayQuick[j] = temp;
+                i++;
+                j--;
+            }
+        }while (i <= j);
+        if (j > 0) SortArray();
+        if (arrayQuick.length > i) SortArray();
+        return arrayQuick;
+    }
+}
+
+class Shift implements SortArray{
+    public double[] SortArray(double[] array){
+        double[] arrayShift = array;
+        double temp = 0.0, min = 0.0;
+        int minIndex;
+        for (int k = 0; k < arrayShift.length-1; k++){
+            min = arrayShift[k];
+            minIndex = k;
+            for (int i = k+1; i < arrayShift.length; i++){
+                if (arrayShift[i] < min){
+                    min = arrayShift[i];
+                    minIndex = i;
+                }
+            }
+            arrayShift[minIndex] = arrayShift[k];
+            arrayShift[k] = min;
+        }
+        return arrayShift;
+    }
+}
+
+public class Sort {
+    public static double[] readDoubleArray(File file) throws IOException{
+        Scanner in = new Scanner(file);
+        List<Double> list = new ArrayList<Double>();
+        while (in.hasNextDouble()) {
+            list.add(in.nextDouble());
+        }
+        double[] array = new double[list.size()];
+        for (int i = 0; i < array.length; i++)
+            array[i] = list.get(i);
+        in.close();
+        return array;
+    }
+
+    public static void main(String[] args) {
+        try {
+            if (args.length != 2)
+                throw new IOException("Input error");
+            File file = new File(args[1]);
+            double[] arr = readDoubleArray(file);
+            SortArray object = null;
+            if (args[0].equals("bubble")) {
+                object = new Bubble();
+            } else if (args[0].equals("quick")) {
+                object = new Quick();
+            } else if (args[0].equals("shift")) {
+                object = new Shift();
+            } else {
+                System.err.println("This method is not found.");
+            }
+            arr = object.SortArray(arr);
+            System.out.println(Arrays.toString(arr));
+        }catch (IOException e){
+            System.out.println(e.getMessage());
+        }
+    }
+}
+
+
 
