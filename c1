@@ -1,12 +1,29 @@
-/**
- * Created by Таня on 05.04.2015.
- */
+import org.w3c.dom.NodeList;
 
+import javax.lang.model.element.Element;
+import javax.swing.text.Document;
+import javax.xml.parsers.*;
+import javax.xml.soap.Node;
+import javax.xml.soap.Text;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.nio.file.Files;
 import java.util.*;
 import java.io.*;
 
+interface ReadData{
+    double[] ReadData(File file);
+}
+
 interface SortArray{
     double[] SortArray(double[] array);
+}
+
+interface WriteData{
+    void WriteData(double[] array, String fileOut);
 }
 
 class Bubble implements SortArray{
@@ -25,8 +42,7 @@ class Bubble implements SortArray{
         return arrayBubble;
     }
 }
-
-    public double[] SortArray(double[] array){
+   public double[] SortArray(double[] array){
         double[] arrayQuick = array;
         int i = 0, j = arrayQuick.length;
         Quick temp, p;
@@ -47,7 +63,7 @@ class Bubble implements SortArray{
         return arrayQuick;
     }
 }
-
+//сортування вибором
 class Shift implements SortArray{
     public double[] SortArray(double[] array){
         double[] arrayShift = array;
@@ -69,8 +85,8 @@ class Shift implements SortArray{
     }
 }
 
-public class Sort {
-    public static double[] readDoubleArray(File file) throws IOException{
+class ReadTxtData implements ReadData{
+    public double[] ReadData(File file) throws IOException {
         Scanner in = new Scanner(file);
         List<Double> list = new ArrayList<Double>();
         while (in.hasNextDouble()) {
@@ -82,30 +98,137 @@ public class Sort {
         in.close();
         return array;
     }
+}
 
+class ReadXmlData implements ReadData{
+    public double[] ReadData(File file) throws IOException{
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document doc = builder.parse(file);
+        Element root = doc.getRootElements();
+        NodeList children = root.getChildNodes();
+        for(int i = 0; i < children.getLength(); i++){
+            Node child = children.item(i);
+            if (child instanceof Element){
+                Element childElement = (Element) child;
+                Text textNode = (Text) childElement.getFirstChild();
+                String text = textNode.getData().trim();
+                if (childElement.getTagName().equals("value"))
+                    value = Double.parseDouble(text);
+            }
+        }
+        return value;
+    }
+}
+
+class ReadCsvData implements ReadData{
+    public double[] ReadData(File file) throws IOException{
+        Scanner in = new Scanner(file);
+        String str = in.nextLine();
+        String[] array = str.split(",");
+        double[] arrayDouble = new double[str.length()];
+        for (int i = 0; i < str.length(); i++){
+            arrayDouble[i] = Double.valueOf(array[i].trim());
+        }
+        in.close();
+        return arrayDouble;
+    }
+}
+
+class ReadConsoleData implements ReadData{
+    public double[] ReadData(File file) throws IOException{
+        Scanner in = new Scanner (System.in);
+        System.out.println("Enter elements of array");
+        String str = in.nextLine();
+        double[] array  = new double[str.length()];
+        int i = 0;
+        while(in.hasNextDouble())
+            array[i] = in.nextDouble();
+    return array;
+    }
+}
+
+class WriteTxtData implements WriteData{
+    public void WriteData(double[] array, String fileOut) throws FileNotFoundException{
+        File file = new File (fileOut);
+        PrintWriter out = new PrintWriter(file.getAbsoluteFile());
+        double[] arr = array;
+        String str = new String();
+        str = arr.toString();
+        out.print(str);
+    }
+}
+
+class WriteConsoleData implements WriteData{
+    public void WriteData(double[] array, String fileOut){
+        double[] arr = array;
+        System.out.println(Arrays.toString(arr));
+    }
+}
+
+class WriteCsvData implements WriteData{
+    public void WriteData(double[] array, String fileOut) throws FileNotFoundException{
+        File file = new File (fileOut);
+        double[] arr = array;
+        PrintWriter out = new PrintWriter(file.getAbsoluteFile());
+        for (int i = 0; i < arr.length; i++)
+            out.print(arr[i] + ",");
+    }
+}
+
+class WriteXmlData implements WriteData{
+    public void WriteData(double[] value, String fileOut) throws FileNotFoundException, TransformerException{
+        File file = new File(fileOut);
+        double[] arr = value;
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        try{
+            builder = factory.newDocumentBuilder();
+        }catch (ParserConfigurationException e){
+            e.printStackTrace();
+        }
+        Document doc = builder.newDocument(arr);
+        Element NameElementTitle = doc.createElement("value");
+        PrintWriter out = new PrintWriter(file.getAbsoluteFile());
+        Transformer t = TransformerFactory.newInstance().newTransformer();
+        t.transform(new DOMSource(doc), new StreamResult(new FileOutputStream(out)));
+    }
+}
+
+public class Sort {
     public static void main(String[] args) {
         try {
-            if (args.length != 2)
+            if (args.length != 5)
                 throw new IOException("Input error");
-            File file = new File(args[1]);
-            double[] arr = readDoubleArray(file);
+            File file = new File(args[3]);
+            File fileOut = new File(args[4]);
+            ReadData read = null;
+            double[] arr;
             SortArray object = null;
-            if (args[0].equals("bubble")) {
-                object = new Bubble();
-            } else if (args[0].equals("quick")) {
-                object = new Quick();
-            } else if (args[0].equals("shift")) {
-                object = new Shift();
-            } else {
-                System.err.println("This method is not found.");
-            }
+            WriteData write = null;
+            if (args[0].equals("bubble")) {object = new Bubble();}
+            else if (args[0].equals("shift")) {object = new Shift();}
+            else {System.err.println("This method is not found.");
+                System.exit(1);}
+            if (args[1].equals("plain") && args[3].equals("InputTxtData")) {read = new ReadTxtData();}
+            else if (args[1].equals("stdin") && args[3].equals("-")) {read = new ReadConsoleData();}
+            else if (args[1].equals("csv") && args[3].equals("InputCsvData")) {read = new ReadCsvData();}
+            else if (args[1].equals("xml") && args[3].equals("InputXmlData")) {read = new ReadXmlData();}
+            else {System.err.println("This file is not found");
+                System.exit(2);}
+            if (args[2].equals("txt") && args[4].equals("OutputTextData")) {write = new WriteTxtData();}
+            else if (args[2].equals("stdin") && args[4].equals("-")) {write = new WriteConsoleData();}
+            else if (args[2].equals("csv") && args[4].equals("OutputCsvData")) {write = new WriteCsvData();}
+            else if (args[2].equals("xml") && args[4].equals("OutputXmlData")) {write = new WriteXmlData();}
+            else {System.err.println("This file is not found");
+                System.exit(3);}
+            arr = read.ReadData(file);
             arr = object.SortArray(arr);
+            write.WriteData(arr, fileOut);
             System.out.println(Arrays.toString(arr));
         }catch (IOException e){
             System.out.println(e.getMessage());
         }
     }
 }
-
 
 
