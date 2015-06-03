@@ -1,234 +1,265 @@
-import org.w3c.dom.NodeList;
-
-import javax.lang.model.element.Element;
-import javax.swing.text.Document;
-import javax.xml.parsers.*;
-import javax.xml.soap.Node;
-import javax.xml.soap.Text;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import java.nio.file.Files;
-import java.util.*;
+import javafx.util.Pair;
 import java.io.*;
+import java.util.*;
 
-interface ReadData{
-    double[] ReadData(File file);
+interface Command{
+   int command(String str) throws IOException;
 }
 
-interface SortArray{
-    double[] SortArray(double[] array);
+interface Operator{
+    int operator(Pair<Command, String> lhs, Pair<Command, String> rhs) throws Exception;
 }
 
-interface WriteData{
-    void WriteData(double[] array, String fileOut);
-}
+class Interpretator{
+    public static final String homePath = System.getProperty("user.home");
+    private PrintWriter out = new PrintWriter(System.out, true);
+    private PrintWriter err = new PrintWriter(System.err, true);
 
-class Bubble implements SortArray{
-    public double[] SortArray(double[] array){
-        double[] arrayBubble = array;
-        double temp = 0.0;
-        for (int k = arrayBubble.length-1; k >= 0; k--){
-            for (int i = 0; i < k; i++){
-                if (arrayBubble[i] > arrayBubble[i+1]){
-                    temp = arrayBubble[i];
-                    arrayBubble[i] = arrayBubble[i+1];
-                    arrayBubble[i+1] = temp;
+    private File currDir = new File(".");
+    private Map<String, String> vars = new HashMap<>();
+
+    public void run(String str) throws Exception{
+        Parser parser = new Parser();
+        for(Pair<Command, String> pair : parser.parse(str)) {
+            Command cmd = pair.getKey();
+            String param = pair.getValue();
+            cmd.command(param);
+        }
+    }
+
+    private class Parser {
+        public List<Pair<Command, String>> parse(String str) {
+            str = parseVars(str);
+            str = substituteVars(str);
+            List<Pair<Command, String>> list = new ArrayList<Pair<Command, String>>();
+
+            for (String args : str.split(" && ")) {
+                for (String arg : args.split(" \\| ")){
+                    Pair<Command, String> pair = parseCommand(arg);
+                    if (pair != null)
+                        list.add(pair);
                 }
             }
+            return list;
         }
-        return arrayBubble;
-    }
-}
-   public double[] SortArray(double[] array){
-        double[] arrayQuick = array;
-        int i = 0, j = arrayQuick.length;
-        Quick temp, p;
-        p = arrayQuick[arrayQuick.length];
-        do{
-            while (arrayQuick[i] < p) i++;
-            while (arrayQuick[j] > p) j--;
-            if (i <= j){
-                temp = arrayQuick[i];
-                arrayQuick[i] = arrayQuick[j];
-                arrayQuick[j] = temp;
-                i++;
-                j--;
-            }
-        }while (i <= j);
-        if (j > 0) SortArray();
-        if (arrayQuick.length > i) SortArray();
-        return arrayQuick;
-    }
-}
-//сортування вибором
-class Shift implements SortArray{
-    public double[] SortArray(double[] array){
-        double[] arrayShift = array;
-        double temp = 0.0, min = 0.0;
-        int minIndex;
-        for (int k = 0; k < arrayShift.length-1; k++){
-            min = arrayShift[k];
-            minIndex = k;
-            for (int i = k+1; i < arrayShift.length; i++){
-                if (arrayShift[i] < min){
-                    min = arrayShift[i];
-                    minIndex = i;
+
+        public String parseVars(String str) {
+            for(String s : str.split(" ")){
+                if(s.contains("=")){
+                    vars.put(s.substring(0, s.indexOf("=")), s.substring(s.indexOf("=") + 1));
+                    str = str.replace(s, "");
                 }
             }
-            arrayShift[minIndex] = arrayShift[k];
-            arrayShift[k] = min;
+            return str;
         }
-        return arrayShift;
-    }
-}
 
-class ReadTxtData implements ReadData{
-    public double[] ReadData(File file) throws IOException {
-        Scanner in = new Scanner(file);
-        List<Double> list = new ArrayList<Double>();
-        while (in.hasNextDouble()) {
-            list.add(in.nextDouble());
-        }
-        double[] array = new double[list.size()];
-        for (int i = 0; i < array.length; i++)
-            array[i] = list.get(i);
-        in.close();
-        return array;
-    }
-}
-
-class ReadXmlData implements ReadData{
-    public double[] ReadData(File file) throws IOException{
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.parse(file);
-        Element root = doc.getRootElements();
-        NodeList children = root.getChildNodes();
-        for(int i = 0; i < children.getLength(); i++){
-            Node child = children.item(i);
-            if (child instanceof Element){
-                Element childElement = (Element) child;
-                Text textNode = (Text) childElement.getFirstChild();
-                String text = textNode.getData().trim();
-                if (childElement.getTagName().equals("value"))
-                    value = Double.parseDouble(text);
+        public String substituteVars(String str) {
+            for (String s : str.split(" ")) {
+                if (s.startsWith("$")) {
+                    String value = vars.get(s.substring(1));
+                    str = (value == null) ? str : str.replace(s, value);
+                }
             }
+            return str;
         }
-        return value;
-    }
-}
 
-class ReadCsvData implements ReadData{
-    public double[] ReadData(File file) throws IOException{
-        Scanner in = new Scanner(file);
-        String str = in.nextLine();
-        String[] array = str.split(",");
-        double[] arrayDouble = new double[str.length()];
-        for (int i = 0; i < str.length(); i++){
-            arrayDouble[i] = Double.valueOf(array[i].trim());
+        public Pair<Command, String> parseCommand(String str) {
+            String[] args = str.split(" ", 2);
+
+            String c = args[0];
+            String param = args.length == 2 ? args[1] : null;
+            Command cmd = new CommandFactory().newInstance(c);
+            if (cmd == null)
+                return null;
+            return new Pair<>(cmd, param);
         }
-        in.close();
-        return arrayDouble;
+    }
+
+    class LS implements Command{
+        public int command(String str){
+            File file = (str == null) ? currDir : new File(str);
+            if (file.isDirectory()) {
+                for (String name : file.list())
+                    out.println(name);
+            }
+            else
+                out.println(file.getName());
+            return 0;
+        }
+    }
+
+    class CD implements Command{
+        public int command(String str){
+            if (str == null) {
+                currDir = new File(homePath);
+                return 0;
+            }
+            File dir = str.startsWith("/") ? new File(str) : new File(currDir, str);
+            if (!dir.exists()) {
+                err.println("cd: " + dir.getName() + ": not found");
+                return 1;
+            }
+            if (!dir.isDirectory()) {
+                err.println("cd: " + dir.getName() + ": isn`t a directory");
+                return 2;
+            }
+            currDir = dir;
+            return 0;
+        }
+    }
+
+    class PWD implements Command{
+        public int command(String str){
+            out.println(currDir.getAbsolutePath());
+            return 0;
+        }
+    }
+
+    class Tail implements Command{
+        public int command(String str) throws IOException{
+            File file = new File(str);
+            if (!file.isFile()) {
+                err.println("Tail: " + file.getName() + ": isn`t a file");
+                return 1;
+            }
+
+            Scanner in = new Scanner(file);
+            List<String> lines = new ArrayList<String>();
+            while(in.hasNextLine()){
+                if (lines.size() >= 10)
+                    lines.remove(0);
+                lines.add(in.nextLine());
+            }
+            for (String s : lines)
+                out.println(s);
+            in.close();
+            return 0;
+        }
+    }
+
+    class Head implements Command{
+        public int command(String str) throws IOException{
+            File file = new File(str);
+            if (!file.isFile()) {
+                err.println("Head: " + file.getName() + ": isn`t a file");
+                return 1;
+            }
+
+            Scanner in = new Scanner(file);
+            for (int i = 0; i < 10 && in.hasNextLine(); i++)
+                out.println(in.nextLine());
+            in.close();
+            return 0;
+        }
+    }
+
+    class DU implements Command{
+        public int command(String str) throws IOException{
+            File dir = (str == null) ? currDir : new File(currDir, str);
+            if (!dir.exists()) {
+                err.println("df: " + dir.getName() + ": isn`t exists");
+                return 1;
+            }
+            sizeDirectory(dir);
+            return 0;
+        }
+
+        long sizeDirectory(File dir) {
+            long size = dir.length();
+            for (File file : dir.listFiles()) {
+                if (file.isFile())
+                    size += file.length();
+                else {
+                    size += sizeDirectory(file);
+                }
+            }
+            out.printf("%-10d %s\n", size, dir.getAbsolutePath());
+            return size;
+        }
+    }
+
+    class DF implements Command {
+        public int command(String str) throws IOException {
+            File dir = (str == null) ? currDir : new File(currDir, str);
+            if (!dir.exists()) {
+                err.println("df: " + dir.getName() + ": is not exist");
+                return 1;
+            }
+            out.println("Used space is " + dir.getUsableSpace() + ", capacity space is " + dir.getTotalSpace());
+            return 0;
+        }
+    }
+
+    class Grep implements Command{
+        public int command(String str) throws IOException{
+            Scanner in = new Scanner(new File(str));
+
+            while (in.hasNextLine()) {
+                String line = in.nextLine();
+                if (line.contains(str))
+                    System.out.println(line);
+            }
+            in.close();
+            return 0;
+        }
+    }
+
+    class PipeCommands implements Operator{
+        public int operator(Pair<Command, String> left, Pair<Command, String> right){
+            Command lCmd = left.getKey();
+            Command rCmd = right.getKey();
+
+            return 0;
+        }
+    }
+
+    class UnionCommands implements Operator {
+        public int operator(Pair<Command, String> left, Pair<Command, String> right) throws Exception {
+            Command leftCmd = left.getKey();
+            String leftParam = left.getValue();
+            Command rightCmd = right.getKey();
+            String rightParam = right.getValue();
+            int result = leftCmd.command(leftParam);
+            if (result == 0)
+                return rightCmd.command(rightParam);
+            return result;
+        }
+    }
+
+    class CommandFactory{
+        public Command newInstance (String str){
+            Command object = null;
+            switch (str.toLowerCase()){
+                case "ls": object = new LS(); break;
+                case "cd": object = new CD(); break;
+                case "pwd": object = new PWD(); break;
+                case "tail": object = new Tail(); break;
+                case "head": object = new Head(); break;
+                case "du": object = new DU(); break;
+                case "df": object = new DF(); break;
+                case "grep": object = new Grep(); break;
+                default:
+
+            }
+            return object;
+        }
     }
 }
 
-class ReadConsoleData implements ReadData{
-    public double[] ReadData(File file) throws IOException{
-        Scanner in = new Scanner (System.in);
-        System.out.println("Enter elements of array");
-        String str = in.nextLine();
-        double[] array  = new double[str.length()];
-        int i = 0;
-        while(in.hasNextDouble())
-            array[i] = in.nextDouble();
-    return array;
-    }
-}
 
-class WriteTxtData implements WriteData{
-    public void WriteData(double[] array, String fileOut) throws FileNotFoundException{
-        File file = new File (fileOut);
-        PrintWriter out = new PrintWriter(file.getAbsoluteFile());
-        double[] arr = array;
+
+public class Task5 {
+    public  static void main(String [] args) throws Exception{
         String str = new String();
-        str = arr.toString();
-        out.print(str);
-    }
-}
+        Scanner in = new Scanner(System.in);
+        Interpretator inter = new Interpretator();
 
-class WriteConsoleData implements WriteData{
-    public void WriteData(double[] array, String fileOut){
-        double[] arr = array;
-        System.out.println(Arrays.toString(arr));
-    }
-}
-
-class WriteCsvData implements WriteData{
-    public void WriteData(double[] array, String fileOut) throws FileNotFoundException{
-        File file = new File (fileOut);
-        double[] arr = array;
-        PrintWriter out = new PrintWriter(file.getAbsoluteFile());
-        for (int i = 0; i < arr.length; i++)
-            out.print(arr[i] + ",");
-    }
-}
-
-class WriteXmlData implements WriteData{
-    public void WriteData(double[] value, String fileOut) throws FileNotFoundException, TransformerException{
-        File file = new File(fileOut);
-        double[] arr = value;
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        try{
-            builder = factory.newDocumentBuilder();
-        }catch (ParserConfigurationException e){
-            e.printStackTrace();
-        }
-        Document doc = builder.newDocument(arr);
-        Element NameElementTitle = doc.createElement("value");
-        PrintWriter out = new PrintWriter(file.getAbsoluteFile());
-        Transformer t = TransformerFactory.newInstance().newTransformer();
-        t.transform(new DOMSource(doc), new StreamResult(new FileOutputStream(out)));
-    }
-}
-
-public class Sort {
-    public static void main(String[] args) {
-        try {
-            if (args.length != 5)
-                throw new IOException("Input error");
-            File file = new File(args[3]);
-            File fileOut = new File(args[4]);
-            ReadData read = null;
-            double[] arr;
-            SortArray object = null;
-            WriteData write = null;
-            if (args[0].equals("bubble")) {object = new Bubble();}
-            else if (args[0].equals("shift")) {object = new Shift();}
-            else {System.err.println("This method is not found.");
-                System.exit(1);}
-            if (args[1].equals("plain") && args[3].equals("InputTxtData")) {read = new ReadTxtData();}
-            else if (args[1].equals("stdin") && args[3].equals("-")) {read = new ReadConsoleData();}
-            else if (args[1].equals("csv") && args[3].equals("InputCsvData")) {read = new ReadCsvData();}
-            else if (args[1].equals("xml") && args[3].equals("InputXmlData")) {read = new ReadXmlData();}
-            else {System.err.println("This file is not found");
-                System.exit(2);}
-            if (args[2].equals("txt") && args[4].equals("OutputTextData")) {write = new WriteTxtData();}
-            else if (args[2].equals("stdin") && args[4].equals("-")) {write = new WriteConsoleData();}
-            else if (args[2].equals("csv") && args[4].equals("OutputCsvData")) {write = new WriteCsvData();}
-            else if (args[2].equals("xml") && args[4].equals("OutputXmlData")) {write = new WriteXmlData();}
-            else {System.err.println("This file is not found");
-                System.exit(3);}
-            arr = read.ReadData(file);
-            arr = object.SortArray(arr);
-            write.WriteData(arr, fileOut);
-            System.out.println(Arrays.toString(arr));
-        }catch (IOException e){
-            System.out.println(e.getMessage());
+        String username = System.getProperty("user.name");
+        System.out.print(username + ": ");
+        while (in.hasNextLine()) {
+            inter.run(in.nextLine());
+            System.out.print(username + ": ");
         }
     }
 }
-
 
